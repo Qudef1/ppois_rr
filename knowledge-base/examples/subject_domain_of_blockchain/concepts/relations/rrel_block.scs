@@ -1,0 +1,11 @@
+rrel_block
+<- sc_node_role_relation;
+=> nrel_main_idtf:
+    [блок']
+    (*
+        <- lang_ru;;
+    *);
+=> nrel_first_domain:
+    concept_blockchain;
+=> nrel_second_domain:
+    concept_block;;

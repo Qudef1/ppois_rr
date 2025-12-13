@@ -1,0 +1,11 @@
+Bitcoin
+<- concept_blockchain;
+=> nrel_main_idtf:
+    [Bitcoin]
+    (*
+        <- lang_en;;
+    *);
+-> rrel_block:
+    btc_block1;
+    btc_block2;;
+    

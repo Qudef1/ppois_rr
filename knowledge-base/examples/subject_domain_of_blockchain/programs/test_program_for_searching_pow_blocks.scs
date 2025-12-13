@@ -1,0 +1,62 @@
+test_program_for_searching_pow_blocks
+=> nrel_main_idtf:
+    [Тестовая программа поиска блоков PoW]
+        (* <- lang_ru;; *);
+    [Test program for searching POW blocks]
+        (* <- lang_en;; *);
+<- scp_program;
+-> rrel_key_sc_element:
+    .._process;;
+
+test_program_for_searching_pow_blocks = [*
+.._process
+<-_ scp_process;
+
+<=_ nrel_decomposition_of_action:: _...
+(*
+
+    // Вызов основной программы
+    _-> rrel_1:: .._call_program_for_searching_pow_blocks
+    (*
+        <-_ call;;
+
+        _-> rrel_1:: rrel_fixed:: rrel_scp_const:: program_for_searching_pow_blocks;;
+        _-> rrel_2:: rrel_fixed:: rrel_scp_const:: .._params
+        (*
+            _-> rrel_1:: rrel_fixed:: rrel_scp_const:: Bitcoin;;
+            _-> rrel_2:: rrel_fixed:: rrel_scp_var:: .._result_blocks;;
+        *);;
+
+        _-> rrel_3:: rrel_assign:: rrel_scp_var:: .._descriptor;;
+
+        _=> nrel_goto:: .._wait_for_result;;
+    *);;
+
+    // Ожидание результата
+    _-> .._wait_for_result
+    (*
+        <-_ waitReturn;;
+
+        _-> rrel_1:: rrel_fixed:: rrel_scp_var:: .._descriptor;;
+
+        _=> nrel_goto:: .._print_result;;
+    *);;
+
+    // Печать результата
+    _-> .._print_result
+    (*
+        <-_ printEl;;
+
+        _-> rrel_1:: rrel_fixed:: rrel_scp_var:: .._result_blocks;;
+
+        _=> nrel_goto:: .._return;;
+    *);;
+
+    // Завершение
+    _-> .._return
+    (*
+        <-_ return;;
+    *);;
+
+*);;
+*];;

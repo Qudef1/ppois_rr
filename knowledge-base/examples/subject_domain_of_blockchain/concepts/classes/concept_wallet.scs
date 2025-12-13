@@ -1,0 +1,7 @@
+concept_wallet
+<- sc_node_class;
+=> nrel_main_idtf:
+    [кошелёк]
+    (* 
+        <- lang_ru;; 
+    *);;

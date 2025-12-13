@@ -1,0 +1,9 @@
+nrel_duration
+<- sc_node_non_role_relation;
+=> nrel_main_idtf:
+    [длительность задачи*]
+    (* <- lang_ru;; *);
+=> nrel_first_domain:
+    concept_task;
+=> nrel_second_domain:
+    concept_integer;;

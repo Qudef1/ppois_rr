@@ -1,0 +1,39 @@
+Ethereum
+<- concept_blockchain;
+=> nrel_main_idtf:
+    [Ethereum]
+    (*
+        <- lang_en;;
+    *);
+-> rrel_block:
+    eth_block1;;
+    
+
+eth_block1
+=> nrel_main_idtf:
+    [Блок 1]
+    (*
+        <- lang_ru;;
+    *);
+<- concept_block;
+-> rrel_transaction:
+    eth_tx1;
+    eth_tx2;;
+
+
+eth_tx1
+=> nrel_main_idtf:
+    [Транзакция 1]
+    (*
+        <- lang_ru;;
+    *);
+<- concept_transaction;;
+
+
+eth_tx2
+=> nrel_main_idtf:
+    [Транзакция 2]
+    (*
+        <- lang_ru;;
+    *);
+<- concept_transaction;;

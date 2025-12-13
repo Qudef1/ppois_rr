@@ -1,0 +1,9 @@
+concept_task
+<- sc_node_class;
+=> nrel_main_idtf:
+    [задача]
+    (* <- lang_ru;; *);
+<= nrel_inclusion:
+    concept_activity;;
+
+  

@@ -1,0 +1,75 @@
+btc_block1
+<- concept_block;
+=> nrel_main_idtf:
+    [BTC блок 1]
+    (* <- lang_ru;; *);
+=> nrel_hash:
+    [00000000000000000000001]
+    (* <- lang_ru;; *);
+-> rrel_transaction:
+    btc_tx1;
+    btc_tx2;
+-> rrel_prev_block:
+    btc_block2;;
+
+btc_block2
+<- concept_block;
+=> nrel_main_idtf:
+    [BTC блок 2]
+    (* <- lang_ru;; *);
+=> nrel_hash:
+    [00000000000000000000002]
+    (*
+        <- lang_ru;;
+    *);
+-> rrel_transaction: 
+    btc_tx3;;
+
+
+
+btc_tx1
+<- concept_transaction;
+=> nrel_hash: 
+    [aaa111]
+    (* <- lang_ru;; *);
+-> rrel_sender: 
+    wallet_artsiom;
+-> rrel_receiver: 
+    wallet_dima;;
+
+btc_tx2
+<- concept_transaction;
+=> nrel_hash: 
+    [bbb222]
+    (* <- lang_ru;; *);
+-> rrel_sender: 
+    wallet_maksim;
+-> rrel_receiver: 
+    wallet_dima;;
+
+wallet_artsiom
+<- concept_wallet;
+=> nrel_main_idtf: 
+    [Артем Башура]
+    (* <- lang_ru;; *);;
+
+
+wallet_dima
+<- concept_wallet;
+=> nrel_main_idtf: 
+    [Бурбас Дмитрий]
+    (* <- lang_ru;; *);;
+
+wallet_maksim
+<- concept_wallet;
+=> nrel_main_idtf: 
+    [Вашкевич Максим]
+    (* <- lang_ru;; *);;
+
+eth_block1
+<- concept_block;
+=> nrel_main_idtf:
+    [ETH блок 1]
+    (* <- lang_ru;; *);
+=> nrel_hash:
+    [ffffeeee1111];;

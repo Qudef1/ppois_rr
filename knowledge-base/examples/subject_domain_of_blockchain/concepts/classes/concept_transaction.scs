@@ -1,0 +1,7 @@
+concept_transaction
+<- sc_node_class;
+=> nrel_main_idtf:
+    [транзакция]
+    (* 
+        <- lang_ru;; 
+    *);;

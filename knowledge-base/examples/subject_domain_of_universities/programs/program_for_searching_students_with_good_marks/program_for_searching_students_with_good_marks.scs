@@ -62,11 +62,11 @@ _-> rrel_2:: rrel_out:: .._result_students; // результирующая ст
 
 		_-> rrel_1:: rrel_assign:: rrel_scp_var:: rrel_const:: rrel_node:: rrel_structure:: .._result_students;;
 		_-> rrel_2:: rrel_assign:: rrel_scp_var:: rrel_const_perm_pos_arc:: .._arc_from_result_students_to_class;;
-		_-> rrel_3:: rrel_fixed:: rrel_scp_const:: concept_student;;
+		_-> rrel_3:: rrel_assign:: rrel_scp_const:: concept_student;;
 
         // Перейти к проверке входного аргумента.
 		_=> nrel_goto:: .._check_university;;
-	*);;
+	*);;	
 
 	// ШАГ 2: ПРОВЕРКА ВХОДНОГО АРГУМЕНТА
 	// Проверить, что входной аргумент действительно является экземпляром класса университетов.
@@ -120,7 +120,7 @@ _-> rrel_2:: rrel_out:: .._result_students; // результирующая ст
 	// Найти любую группу во множестве найденных групп, являющегося значением переменной .._found_groups.
 	_-> .._get_next_group
 	(*
-		<-_ searchElStr3;;
+		<-_ searchElStr3;;		
 
 		_-> rrel_1:: rrel_fixed:: rrel_scp_var:: .._found_groups;;
 		_-> rrel_2:: rrel_assign:: rrel_scp_var:: rrel_const_perm_pos_arc:: .._arc_from_group_set_to_group;;

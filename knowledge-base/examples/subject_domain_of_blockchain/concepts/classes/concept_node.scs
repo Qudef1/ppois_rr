@@ -1,0 +1,7 @@
+concept_node
+<- sc_node_class;
+=> nrel_main_idtf:
+    [узел блокчейна]
+    (* 
+        <- lang_ru;; 
+    *);;

@@ -1,0 +1,10 @@
+concept_block
+<- sc_node_class;
+=> nrel_main_idtf:
+    [блок]
+    (* 
+        <- lang_ru;; 
+    *);
+    
+<= nrel_inclusion:
+    concept_blockchain;;

@@ -1,0 +1,53 @@
+@search_senders_in_blockchain_template = {
+    rrel_init_template: {
+        rrel_template: [*
+            @input_param1 = (.._blockchain <-_ concept_blockchain);;
+            rrel_block _-> (.._blockchain _-> .._block);;
+            @output_param1 = (.._block <-_ concept_block);;
+        *];
+        rrel_template_input_params: {
+            @input_param1
+        };
+        rrel_template_output_params: {
+            @output_param1
+        }
+    } (* <- nrel_search_set_template;; *);
+    rrel_next_template: {
+        rrel_init_template: {
+            rrel_template: [*
+                @input_param1 = (.._block <-_ concept_block);;
+                rrel_transaction _-> (.._block _-> .._tx);;
+                @output_param1 = (.._tx <-_ concept_transaction);;
+            *];
+            rrel_template_input_params: {
+                @input_param1
+            };
+            rrel_template_output_params: {
+                @output_param1
+            }
+        } (* <- nrel_search_set_template;; *);
+        rrel_next_template: {
+            rrel_init_template: {
+                rrel_template: [*
+                    @input_param1 = (.._tx <-_ concept_transaction);;
+                    rrel_sender _-> (.._tx _-> .._sender_wallet);;
+                    @output_param1 = (.._sender_wallet <-_ concept_wallet);;
+                *];
+                rrel_template_input_params: {
+                    @input_param1
+                };
+                rrel_template_output_params: {
+                    @output_param1
+                }
+            } (* <- nrel_search_template;; *)
+        } (* <- nrel_fixed_search_strategy_template;; *)
+    } (* <- nrel_fixed_search_strategy_template;; *)
+};;
+
+@search_senders_in_blockchain_template
+<- nrel_fixed_search_strategy_template;
+=> nrel_main_idtf:
+    [Шаблон поиска отправителей транзакций в блокчейне]
+    (*
+        <- lang_ru;;
+    *);;
