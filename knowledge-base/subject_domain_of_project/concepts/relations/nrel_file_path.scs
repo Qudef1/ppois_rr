@@ -1,0 +1,7 @@
+nrel_file_path
+<- sc_node_non_role_relation;
+=> nrel_main_idtf:
+    [путь к файлу]
+    (* <- lang_ru;; *);
+    [file path]
+    (* <- lang_en;; *);;

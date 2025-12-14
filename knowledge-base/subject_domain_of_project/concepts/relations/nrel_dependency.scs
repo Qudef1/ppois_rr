@@ -1,4 +1,4 @@
-nrel_depends_on
+nrel_dependency
 <- sc_node_non_role_relation;
 => nrel_main_idtf:
     [зависит от]

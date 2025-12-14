@@ -1,0 +1,4 @@
+action_construct_project_dag_from_csv
+<- sc_node_class;
+=> nrel_main_idtf: [построить DAG проекта из CSV] (* <- lang_ru;; *);
+<= nrel_inclusion: concept_information_action;;

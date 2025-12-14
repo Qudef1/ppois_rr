@@ -6,4 +6,5 @@ nrel_duration
 => nrel_first_domain:
     concept_task;
 => nrel_second_domain:
-    concept_integer;;
+    lang_en;;
+

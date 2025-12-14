@@ -1,0 +1,4 @@
+action_project_dag_ready
+<- sc_node_class;
+=> nrel_main_idtf: [DAG проекта готов] (* <- lang_ru;; *);
+<= nrel_inclusion: concept_information_action;;
