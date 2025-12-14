@@ -13,9 +13,7 @@ class ostis_example_appRecipe(ConanFile):
         self.requires("sc-machine/0.10.5", override=True)
         self.requires("scl-machine/0.3.1")
         self.requires("ps-common-lib/0.1.1")
-
-    def build_requirements(self):
-        self.test_requires("gtest/1.14.0")
+        self.requires("gtest/1.14.0")
 
     def layout(self):
         cmake_layout(self)

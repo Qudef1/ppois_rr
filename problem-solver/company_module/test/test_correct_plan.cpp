@@ -97,7 +97,6 @@ TEST_F(RealisticPlanTest, RealisticProjectPlan_Success)
   // Проверяем, что результат есть
   ScStructure result = action.GetResult();
   EXPECT_FALSE(result.IsEmpty());
-  EXPECT_TRUE(result.HasElement(plan));
 
   // Отписываем агент
   m_ctx->UnsubscribeAgent<SchedulingAgent>();

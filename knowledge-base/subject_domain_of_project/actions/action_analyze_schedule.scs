@@ -1,0 +1,14 @@
+action_find_critical
+<- sc_node_class;
+<- concept_class;
+=> nrel_main_idtf:
+    [Проверить DAG]
+    (* 
+        <- lang_ru;;
+    *);
+    [Check DAG]
+    (*
+        <- lang_en;;
+    *);
+<= nrel_inclusion:
+    concept_information_action;;
