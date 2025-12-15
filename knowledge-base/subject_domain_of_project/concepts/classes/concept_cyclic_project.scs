@@ -1,7 +1,7 @@
-concept_project
+concept_cyclic_project
 <- sc_node_class;
 => nrel_main_idtf:
-    [проект]
+    [проект с циклом]
     (* <- lang_ru;; *);
 <= nrel_inclusion:
     concept_activity;;

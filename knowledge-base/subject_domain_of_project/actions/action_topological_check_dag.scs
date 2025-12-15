@@ -1,4 +1,4 @@
-action_find_critical
+action_topological_check_dag
 <- sc_node_class;
 <- concept_class;
 => nrel_main_idtf:

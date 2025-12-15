@@ -16,8 +16,14 @@ public:
   ScTemplate GetInitiationConditionTemplate(ConnectivityEvent const & event) const override;
   // Возвращение действия, для которого будет запускаться этот агент
   ScAddr GetActionClass() const override;
+
+
+
   // Считает количество рёбер, исходящих из заданного района
   int GetCountOfEdges(ScAddr const & el);
+
+
+  
   // Возвращает соседний район по индексу (итерация по рёбрам)
   ScAddr GetElementByIterator(ScAddr const & el, int index);
   // Собирает множество всех районов города по структурам маршрутов.
