@@ -238,5 +238,6 @@ ScResult TopologicalSortAgent::DoProgram(ConnectivityEvent const & event, ScActi
     m_context.GenerateConnector(ScType::ConstPermPosArc, ProjectSchedulingKeynodes::nrel_topological_order, projectToTupleArc);
 
     return action.FinishSuccessfully();
+    
 }
 
