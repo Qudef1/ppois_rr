@@ -35,11 +35,8 @@ _-> .._check_blockchain
 		_-> rrel_2:: rrel_assign:: rrel_const_perm_pos_arc:: rrel_scp_var:: .._arc_from_class_to_blockchain;;
 		_-> rrel_3:: rrel_fixed:: rrel_scp_const:: .._blockchain;;
 
-		// Если входной аргумент является экземпляром класса университетов, 
-		// то перейти к печати в терминал, что он является университетом.
 		_=> nrel_then:: .._print_that_specified_argument_is_blockchain;;
-		// Если входной аргумент не является экземпляром класса университетов, 
-		// то перейти к печати в терминал, что он не является университетом.
+
 		_=> nrel_else:: .._print_that_specified_argument_is_not_blockchain;;
 	*);;
 
@@ -48,7 +45,6 @@ _-> .._check_blockchain
 		<-_ printNl;;		
 		_-> rrel_1:: rrel_fixed:: rrel_scp_const:: [Specified argument is blockchain];;
 
-		// Перейти к поиску всех групп в университете.
 		_=> nrel_goto:: .._search_blocks_in_blockchain;;
 	*);;
 
@@ -74,9 +70,8 @@ _-> .._check_blockchain
 	
 		_-> rrel_set_3:: rrel_assign:: rrel_scp_var:: .._found_blocks;;
 
-		// Если группы найдены, то перейти к выбору группы.
+		
 		_=> nrel_then:: .._get_next_block;;
-		// Если группы не найдены, то перейти к печати в терминал, что все группы были пройдены.
 		_=> nrel_else:: .._print_that_all_blocks_were_iterated;;
 	*);;
 
@@ -88,9 +83,7 @@ _-> .._check_blockchain
 		_-> rrel_2:: rrel_assign:: rrel_scp_var:: rrel_const_perm_pos_arc:: .._arc_from_block_set_to_block;;
 		_-> rrel_3:: rrel_assign:: rrel_scp_var:: .._block;;
 
-		// Если группы еще остались, то перейти к удалению выбранной группы из множества.
 		_=> nrel_then:: .._pop_block_from_set;;
-		// Если все группы были пройдены, то перейти к печати в терминал, что все группы были пройдены.
 		_=> nrel_else:: .._print_that_all_blocks_were_iterated;;
 	*);;
 
@@ -100,7 +93,6 @@ _-> .._check_blockchain
 
 		_-> rrel_1:: rrel_fixed:: rrel_scp_var:: rrel_erase:: .._arc_from_block_set_to_block;;
 
-		// Перейти к печати в терминал, что группа успешно извлечена из множества.
 		_=> nrel_goto:: .._print_that_block_was_found;;
 	*);;
 
@@ -110,7 +102,6 @@ _-> .._check_blockchain
 
 		_-> rrel_1:: rrel_fixed:: rrel_scp_const:: [Block was Found in specified Blockchain];;
 
-		// Перейти к поиску всех студентов в выбранной группе.
 		_=> nrel_goto:: .._search_block_hash;;
 	*);;
 
@@ -124,9 +115,7 @@ _-> .._check_blockchain
 		_-> rrel_4:: rrel_assign:: rrel_scp_var:: rrel_const_perm_pos_arc:: .._arc_to_arc_from_block_to_hash;;
 		_-> rrel_5:: rrel_fixed:: rrel_scp_const:: nrel_hash;;
 
-		// Если средняя оценка найдена, то перейти к печати в терминал, что средняя оценка найдена.
 		_=> nrel_then:: .._print_that_hash_is_found;;
-		// Если средняя оценка не найдена, то перейти к печати в терминал, что средняя оценка не найдена.
 		_=> nrel_else:: .._print_that_hash_is_not_found;;
 	*);;
 
@@ -176,7 +165,6 @@ _-> .._check_blockchain
 
 		_-> rrel_1:: rrel_fixed:: rrel_scp_const:: [block was added to res block set];;
 
-		// Перейти к выбору следующего студента.
 		_=> nrel_goto:: .._get_next_block;;
 	*);;
 
@@ -194,7 +182,6 @@ _-> .._check_blockchain
     <-_ eraseEl;;
     _-> rrel_1:: rrel_fixed:: rrel_scp_var:: rrel_erase:: .._found_blocks;;
 
-		// Перейти к выбору следующей группы.
 		_=> nrel_goto:: .._return_result;;
   *);;
 	// Завершить программу.
