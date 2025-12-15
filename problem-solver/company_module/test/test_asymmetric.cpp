@@ -100,8 +100,8 @@ TEST_F(TopologicalSortTest, CyclicGraphIsRejected)
   waiter.Wait(1000);
 
   // Ожидаем, что граф помечен как цикличный
-  EXPECT_TRUE(IsProjectAcyclic(project));
-  EXPECT_FALSE(IsProjectCyclic(project));
+  EXPECT_FALSE(IsProjectAcyclic(project));
+  EXPECT_TRUE(IsProjectCyclic(project));
 }
 
 // Тест 3: одиночная задача (тривиально ациклична)

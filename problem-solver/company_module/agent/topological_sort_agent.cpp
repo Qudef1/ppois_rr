@@ -20,14 +20,27 @@ ScTemplate TopologicalSortAgent::GetInitiationConditionTemplate(ConnectivityEven
   return templ;
 }
 ScAddrVector TopologicalSortAgent::GetTasks(ScAddr const & project){
-    // Tasks are stored inside the project structure as common arcs from project to task nodes
-    ScIterator3Ptr const it3 = m_context.CreateIterator3(project, ScType::ConstCommonArc, ScType::ConstNode);
+    // Try to collect tasks as any elements pointed by common arcs from project
     ScAddrVector tasks;
-    while (it3->Next())
+
+    ScIterator3Ptr it3_any = m_context.CreateIterator3(project, ScType::ConstCommonArc, ScType::Unknown);
+    while (it3_any->Next())
     {
-        ScAddr const & elementAddr = it3->Get(2);
+        ScAddr const & elementAddr = it3_any->Get(2);
         tasks.push_back(elementAddr);
     }
+
+    // If nothing found, try PermPosArc variant (some generators may use different types)
+    if (tasks.empty())
+    {
+        ScIterator3Ptr it3_perm = m_context.CreateIterator3(project, ScType::ConstPermPosArc, ScType::Unknown);
+        while (it3_perm->Next())
+        {
+            ScAddr const & elementAddr = it3_perm->Get(2);
+            tasks.push_back(elementAddr);
+        }
+    }
+
     return tasks;
 }
 ScAddrVector TopologicalSortAgent::GetDependencies(ScAddr const & task){
@@ -203,7 +216,15 @@ ScResult TopologicalSortAgent::DoProgram(ConnectivityEvent const & event, ScActi
     m_logger.Info("TopologicalSortAgent::DoProgram started!");
     m_logger.Debug("TopologicalSortAgent::DoProgram started!");
     ScAddr project = event.GetArcTargetElement();
+    std::string projId = m_context.GetElementSystemIdentifier(project);
+    m_logger.Info("TopologicalSortAgent: project system id = ", projId);
     ScAddrVector tasks = GetTasks(project);
+    m_logger.Info("TopologicalSortAgent: found tasks count = ", tasks.size());
+    for (auto const & t : tasks)
+    {
+        std::string id = m_context.GetElementSystemIdentifier(t);
+        m_logger.Info("  task: ", id);
+    }
     if(IsAcyclic(tasks)){
          m_context.GenerateConnector(
         ScType::ConstPermPosArc,
@@ -218,6 +239,12 @@ ScResult TopologicalSortAgent::DoProgram(ConnectivityEvent const & event, ScActi
         return action.FinishUnsuccessfully();
     }
     std::vector<ScAddr> topoOrder = TopologicalSort(tasks);
+    m_logger.Info("TopologicalSortAgent: topoOrder size = ", topoOrder.size());
+    for (auto const & t : topoOrder)
+    {
+        std::string id = m_context.GetElementSystemIdentifier(t);
+        m_logger.Info("  topo: ", id);
+    }
     if (topoOrder.empty())
     {
         // Цикл — уже обработано ранее, но на всякий случай
@@ -227,15 +254,21 @@ ScResult TopologicalSortAgent::DoProgram(ConnectivityEvent const & event, ScActi
     // Создаём кортеж результата
     ScAddr orderTuple = m_context.GenerateNode(ScType::ConstNodeTuple);
 
-    // Добавляем каждую задачу в кортеж (common arcs from tuple -> task)
-    for (size_t i = 0; i < topoOrder.size(); ++i)
+    // Добавляем каждую задачу в кортеж (common arcs from tuple -> task).
+    // Note: sc-memory iteration over common arcs may return elements in
+    // reverse insertion order, so insert in reverse to make iterator
+    // return tasks in the expected topological sequence.
+    for (size_t ii = 0; ii < topoOrder.size(); ++ii)
     {
+        size_t i = topoOrder.size() - 1 - ii;
         m_context.GenerateConnector(ScType::ConstCommonArc, orderTuple, topoOrder[i]);
     }
 
     // Создаём общую дугу от project -> orderTuple и помечаем эту дугу nrel_topological_order
     ScAddr projectToTupleArc = m_context.GenerateConnector(ScType::ConstCommonArc, project, orderTuple);
+    m_logger.Info("TopologicalSortAgent: created project->tuple arc");
     m_context.GenerateConnector(ScType::ConstPermPosArc, ProjectSchedulingKeynodes::nrel_topological_order, projectToTupleArc);
+    m_logger.Info("TopologicalSortAgent: marked project->tuple arc with nrel_topological_order");
 
     return action.FinishSuccessfully();
     

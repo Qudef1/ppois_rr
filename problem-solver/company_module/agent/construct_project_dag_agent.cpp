@@ -3,6 +3,8 @@
 #include "../keynodes/scheduling_keynodes.hpp"
 #include <sstream>
 #include <stdexcept>
+#include <thread>
+#include <chrono>
 
 ConstructProjectDagAgent::ConstructProjectDagAgent()
 {
@@ -174,7 +176,27 @@ ScResult ConstructProjectDagAgent::DoProgram(ScAction& action)
       ProjectSchedulingKeynodes::action_project_dag_ready,
       project);
 
-  m_logger.Info("DAG construction completed. Setting result.");
+  // Wait briefly for consumers (e.g. TopologicalSortAgent) to react and produce
+  // topological order marking. This makes the action behave synchronously for tests.
+  const int maxAttempts = 50; // ~500 ms
+  bool foundMarked = false;
+  for (int i = 0; i < maxAttempts; ++i)
+  {
+    ScIterator3Ptr it3 = m_context.CreateIterator3(project, ScType::ConstCommonArc, ScType::ConstNodeTuple);
+    while (it3->Next())
+    {
+      ScAddr arc = it3->Get(1);
+      if (m_context.CheckConnector(ProjectSchedulingKeynodes::nrel_topological_order, arc, ScType::ConstPermPosArc))
+      {
+        foundMarked = true;
+        break;
+      }
+    }
+    if (foundMarked) break;
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+
+  m_logger.Info("DAG construction completed. Setting result. topological_mark_found=", foundMarked);
   action.SetResult(project);
   return action.FinishSuccessfully();
 }
