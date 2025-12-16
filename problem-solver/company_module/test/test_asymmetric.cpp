@@ -289,3 +289,4 @@ TEST_F(TopologicalSortTest, CPMAttributesAreCorrect)
         EXPECT_EQ(isCritical, exp.critical);
     }
 }
+
