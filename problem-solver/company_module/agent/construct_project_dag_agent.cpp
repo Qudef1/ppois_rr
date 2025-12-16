@@ -6,50 +6,59 @@
 #include <thread>
 #include <chrono>
 
+// Конструктор агента — логируем инициализацию
 ConstructProjectDagAgent::ConstructProjectDagAgent()
 {
   m_logger.Info("ConstructProjectDagAgent initialized.");
 }
 
+// Метод, возвращающий sc-узел действия, которое обрабатывает агент
 ScAddr ConstructProjectDagAgent::GetActionClass() const
 {
   return ProjectSchedulingKeynodes::action_construct_project_dag_from_csv;
 }
 
+// Генерация уникального системного идентификатора для задачи
 int ConstructProjectDagAgent::GetNextSystemIdentifier(const std::string& baseName)
 {
   int id = 0;
   while (m_context.SearchElementBySystemIdentifier(baseName + std::to_string(id)).IsValid())
   {
-    ++id;
+    ++id; // увеличиваем, пока существует элемент с таким идентификатором
   }
   return id;
 }
 
+// Создание задачи в sc-памяти с идентификатором и длительностью
 void ConstructProjectDagAgent::CreateTask(ScAddr& taskNode, const std::string& taskId, uint32_t duration)
 {
+  // Генерируем уникальный системный идентификатор
   std::string sysId = "task_" + std::to_string(GetNextSystemIdentifier("task_"));
+
+  // Создаём узел для задачи
   taskNode = m_context.GenerateNode(ScType::ConstNode);
   m_context.SetElementSystemIdentifier(sysId, taskNode);
 
-  // main_idtf = taskId (например, "A")
+  // Создаём link для main_idtf и связываем его с задачей
   ScAddr linkIdtf = m_context.GenerateLink(ScType::ConstNodeLink);
   m_context.SetLinkContent(linkIdtf, taskId);
   ScAddr arcIdtf = m_context.GenerateConnector(ScType::ConstCommonArc, taskNode, linkIdtf);
   m_context.GenerateConnector(ScType::ConstPermPosArc, ScKeynodes::nrel_main_idtf, arcIdtf);
 
-  // concept_task
+  // Помечаем узел как concept_task
   m_context.GenerateConnector(ScType::ConstPermPosArc, ProjectSchedulingKeynodes::concept_task, taskNode);
 
-  // nrel_duration
+  // Создаём link для длительности задачи (nrel_duration)
   ScAddr durLink = m_context.GenerateLink(ScType::ConstNodeLink);
   m_context.SetLinkContent(durLink, std::to_string(duration));
   ScAddr durArc = m_context.GenerateConnector(ScType::ConstCommonArc, taskNode, durLink);
   m_context.GenerateConnector(ScType::ConstPermPosArc, ProjectSchedulingKeynodes::nrel_duration, durArc);
 
+  // Логируем создание задачи
   m_logger.Info("Created task: ", taskId, " with duration ", duration);
 }
 
+// Утилита для разбиения строки на токены по разделителю
 std::vector<std::string> ConstructProjectDagAgent::Split(const std::string& s, char delimiter)
 {
   std::vector<std::string> tokens;
@@ -57,6 +66,7 @@ std::vector<std::string> ConstructProjectDagAgent::Split(const std::string& s, c
   std::istringstream tokenStream(s);
   while (std::getline(tokenStream, token, delimiter))
   {
+    // Убираем пробелы в начале и конце токена
     size_t start = token.find_first_not_of(" \t");
     size_t end = token.find_last_not_of(" \t");
     if (start != std::string::npos)
@@ -67,11 +77,12 @@ std::vector<std::string> ConstructProjectDagAgent::Split(const std::string& s, c
   return tokens;
 }
 
+// Основная функция обработки действия агента
 ScResult ConstructProjectDagAgent::DoProgram(ScAction& action)
 {
   m_logger.Info("ConstructProjectDagAgent started processing action.");
 
-  // 1. Читаем CSV из nrel_file_path
+  // 1. Читаем CSV из nrel_file_path, прикреплённого к действию
   ScIterator5Ptr it5 = m_context.CreateIterator5(
       action,
       ScType::ConstCommonArc,
@@ -87,7 +98,7 @@ ScResult ConstructProjectDagAgent::DoProgram(ScAction& action)
   std::string csv;
   m_context.GetLinkContent(csvLink, csv);
 
-  // 2. Разбиваем на строки
+  // 2. Разбиваем CSV на строки и потом на части
   std::istringstream stream(csv);
   std::string line;
   std::vector<std::vector<std::string>> parsedLines;
@@ -95,14 +106,14 @@ ScResult ConstructProjectDagAgent::DoProgram(ScAction& action)
   while (std::getline(stream, line))
   {
     if (line.empty()) continue;
-    auto parts = Split(line, ';');
-    if (parts.size() < 2) continue;
+    auto parts = Split(line, ';');  // разделяем по ';'
+    if (parts.size() < 2) continue; // пропускаем некорректные строки
     parsedLines.push_back(parts);
   }
 
   m_logger.Info("Parsed ", parsedLines.size(), " lines from CSV.");
 
-  // 3. Создаём все задачи
+  // 3. Создаём все задачи и сохраняем их в m_taskMap
   m_taskMap.clear();
   for (auto& parts : parsedLines)
   {
@@ -110,12 +121,12 @@ ScResult ConstructProjectDagAgent::DoProgram(ScAction& action)
     uint32_t duration = std::stoul(parts[1]);
     ScAddr task;
     CreateTask(task, id, duration);
-    m_taskMap.emplace_back(id, task);
+    m_taskMap.emplace_back(id, task); // сохраняем пару <id, ScAddr>
   }
 
   m_logger.Info("Created ", m_taskMap.size(), " tasks.");
 
-  // 4. Создаём зависимости
+  // 4. Создаём зависимости между задачами
   for (auto& parts : parsedLines)
   {
     if (parts.size() < 3) continue;
@@ -123,9 +134,9 @@ ScResult ConstructProjectDagAgent::DoProgram(ScAction& action)
     std::string depsStr = parts[2];
     if (depsStr.empty()) continue;
 
-    auto depIds = Split(depsStr, ',');
+    auto depIds = Split(depsStr, ','); // список идентификаторов родительских задач
 
-    // Находим child
+    // Находим child задачу
     ScAddr child;
     for (auto& pair : m_taskMap)
     {
@@ -139,7 +150,7 @@ ScResult ConstructProjectDagAgent::DoProgram(ScAction& action)
 
     for (auto& depId : depIds)
     {
-      // Находим parent
+      // Находим parent задачу
       ScAddr parent;
       for (auto& pair : m_taskMap)
       {
@@ -151,34 +162,30 @@ ScResult ConstructProjectDagAgent::DoProgram(ScAction& action)
       }
       if (!parent.IsValid()) continue;
 
-      // Создаём ориентированную связь: child зависит от parent
-      // В sc-памяти: child --(nrel_dependency)--> parent
+      // Создаём дугу child -> parent и помечаем её как nrel_dependency
       ScAddr depArc = m_context.GenerateConnector(ScType::ConstCommonArc, child, parent);
       m_context.GenerateConnector(ScType::ConstPermPosArc, ProjectSchedulingKeynodes::nrel_dependency, depArc);
       m_logger.Info("Added dependency: ", id, " depends on ", depId);
     }
   }
 
-  // 5. Создаём структуру проекта
+  // 5. Создаём структуру проекта и добавляем туда задачи
   ScStructure project = m_context.GenerateStructure();
-
-  // Добавляем задачи в структуру, как в CreateGraphAgent
   for (auto& pair : m_taskMap)
   {
-    project << pair.second; // <-- Добавляем задачу в структуру
+    project << pair.second; // добавляем задачу в структуру
   }
 
   m_logger.Info("Added tasks to project structure.");
 
-  // 6. Сигнализируем, что DAG готов
+  // 6. Сигнализируем, что DAG построен (генерируем событие)
   m_context.GenerateConnector(
       ScType::ConstPermPosArc,
       ProjectSchedulingKeynodes::action_project_dag_ready,
       project);
 
-  // Wait briefly for consumers (e.g. TopologicalSortAgent) to react and produce
-  // topological order marking. This makes the action behave synchronously for tests.
-  const int maxAttempts = 50; // ~500 ms
+  // Ждём, пока другой агент (например, TopologicalSortAgent) обработает DAG и пометит топологический порядок
+  const int maxAttempts = 50; // ~500 мс
   bool foundMarked = false;
   for (int i = 0; i < maxAttempts; ++i)
   {
@@ -188,15 +195,17 @@ ScResult ConstructProjectDagAgent::DoProgram(ScAction& action)
       ScAddr arc = it3->Get(1);
       if (m_context.CheckConnector(ProjectSchedulingKeynodes::nrel_topological_order, arc, ScType::ConstPermPosArc))
       {
-        foundMarked = true;
+        foundMarked = true; // нашли пометку о топологическом порядке
         break;
       }
     }
     if (foundMarked) break;
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    std::this_thread::sleep_for(std::chrono::milliseconds(10)); // короткая пауза
   }
 
   m_logger.Info("DAG construction completed. Setting result. topological_mark_found=", foundMarked);
+
+  // Возвращаем созданную структуру проекта как результат действия
   action.SetResult(project);
   return action.FinishSuccessfully();
 }

@@ -6,18 +6,22 @@
 #include <vector>
 #include <string>
 
+// Базовый класс для тестов с использованием sc-memory
 using TopologicalSortAgentTest = ScMemoryTest;
 
+// Класс тестов для TopologicalSortAgent
 class TopologicalSortTest : public TopologicalSortAgentTest
 {
 protected:
+  // Выполняется перед каждым тестом
   void SetUp() override
   {
     ScMemoryTest::SetUp();
-    m_ctx->SubscribeAgent<ConstructProjectDagAgent>();
-    m_ctx->SubscribeAgent<TopologicalSortAgent>(); // ← твой агент
+    m_ctx->SubscribeAgent<ConstructProjectDagAgent>(); // подписываем агента, который строит DAG
+    m_ctx->SubscribeAgent<TopologicalSortAgent>();      // подписываем агент TopologicalSortAgent
   }
 
+  // Выполняется после каждого теста
   void TearDown() override
   {
     m_ctx->UnsubscribeAgent<TopologicalSortAgent>();
@@ -25,41 +29,52 @@ protected:
     ScMemoryTest::TearDown();
   }
 
+  // Вспомогательная функция: создаёт проект из CSV и возвращает структуру
   ScAddr BuildProjectFromCSV(const std::string& csvData)
   {
+    // Генерация действия
     ScAction action = m_ctx->GenerateAction(ProjectSchedulingKeynodes::action_construct_project_dag_from_csv);
 
+    // Создаём link с CSV содержимым
     ScAddr csvLink = m_ctx->GenerateLink(ScType::ConstNodeLink);
     m_ctx->SetLinkContent(csvLink, csvData);
+
+    // Связываем action с csvLink
     ScAddr arc = m_ctx->GenerateConnector(ScType::ConstCommonArc, action, csvLink);
+
+    // Помечаем связь как nrel_file_path
     m_ctx->GenerateConnector(ScType::ConstPermPosArc, ProjectSchedulingKeynodes::nrel_file_path, arc);
 
+    // Инициация действия и ожидание завершения
     EXPECT_TRUE(action.InitiateAndWait());
     EXPECT_TRUE(action.IsFinishedSuccessfully());
 
+    // Получаем результат (структуру проекта)
     ScStructure project = action.GetResult();
     EXPECT_FALSE(project.IsEmpty());
 
-    // Должен быть создан сигнал: action_project_dag_ready -> project
+    // Проверяем, что DAG готов: action_project_dag_ready -> project
     EXPECT_TRUE(m_ctx->CheckConnector(
         ProjectSchedulingKeynodes::action_project_dag_ready, project, ScType::ConstPermPosArc));
 
     return project;
   }
 
-  // Проверяем, что проект помечен как ацикличный (если твой агент так делает)
+  // Проверка, что проект помечен как ацикличный
   bool IsProjectAcyclic(ScAddr const & project)
   {
     return m_ctx->CheckConnector(
         ProjectSchedulingKeynodes::concept_acyclic_project, project, ScType::ConstPermPosArc);
   }
 
-  // Проверяем, что проект помечен как цикличный
+  // Проверка, что проект помечен как цикличный
   bool IsProjectCyclic(ScAddr const & project)
   {
     return m_ctx->CheckConnector(
         ProjectSchedulingKeynodes::concept_cyclic_project, project, ScType::ConstPermPosArc);
   }
+
+  // Вспомогательная функция для получения числового атрибута задачи
   uint32_t GetTaskAttr(ScAddr const & task, ScAddr const & rel)
   {
       ScIterator5Ptr it5 = m_ctx->CreateIterator5(
@@ -75,10 +90,11 @@ protected:
       m_ctx->GetLinkContent(it5->Get(2), content);
       return std::stoul(content);
   }
-
 };
 
-// Тест 1: ацикличный граф (успешная проверка)
+// ================================
+// Тест 1: ацикличный граф
+// ================================
 TEST_F(TopologicalSortTest, AcyclicGraphIsAccepted)
 {
   std::string csvData =
@@ -87,22 +103,22 @@ TEST_F(TopologicalSortTest, AcyclicGraphIsAccepted)
       "C;7;A\n"
       "D;3;B,C";
 
+  // Создаём проект
   ScAddr project = BuildProjectFromCSV(csvData);
   ASSERT_TRUE(project.IsValid());
 
-  // Ждём, пока TopologicalSortAgent обработает событие
+  // Ждём 500 мс, пока TopologicalSortAgent обработает DAG
   ScWaiter waiter;
-  waiter.Wait(500); // или используй ScAction, если агент завершает действие
+  waiter.Wait(500);
 
-  // Способ 1: если агент помечает проект
+  // Проверяем маркировку проекта
   EXPECT_TRUE(IsProjectAcyclic(project));
   EXPECT_FALSE(IsProjectCyclic(project));
-
-  // Способ 2: если агент создаёт собственное действие — нужно искать его результат
-  // (в этом тесте мы предполагаем маркировку через concept_*)
 }
 
-// Тест 2: цикличный граф (ошибка или маркировка как цикличный)
+// ================================
+// Тест 2: цикличный граф
+// ================================
 TEST_F(TopologicalSortTest, CyclicGraphIsRejected)
 {
   std::string csvData =
@@ -115,12 +131,14 @@ TEST_F(TopologicalSortTest, CyclicGraphIsRejected)
   ScWaiter waiter;
   waiter.Wait(1000);
 
-  // Ожидаем, что граф помечен как цикличный
+  // Проверяем, что граф помечен как цикличный
   EXPECT_FALSE(IsProjectAcyclic(project));
   EXPECT_TRUE(IsProjectCyclic(project));
 }
 
-// Тест 3: одиночная задача (тривиально ациклична)
+// ================================
+// Тест 3: одиночная задача
+// ================================
 TEST_F(TopologicalSortTest, SingleTaskIsAcyclic)
 {
   std::string csvData = "A;10;";
@@ -133,6 +151,10 @@ TEST_F(TopologicalSortTest, SingleTaskIsAcyclic)
 
   EXPECT_TRUE(IsProjectAcyclic(project));
 }
+
+// ================================
+// Тест 4: корректный топологический порядок
+// ================================
 TEST_F(TopologicalSortTest, TopologicalOrderIsCorrect)
 {
     std::string csvData =
@@ -147,7 +169,7 @@ TEST_F(TopologicalSortTest, TopologicalOrderIsCorrect)
     ScAddr topologicalTuple;
     bool found = false;
 
-    // Ищем дугу project -> tuple, помеченную как nrel_topological_order
+    // Ищем кортеж с топологическим порядком: project -> tuple
     ScIterator3Ptr it3 = m_ctx->CreateIterator3(project, ScType::ConstCommonArc, ScType::ConstNodeTuple);
     while (it3->Next())
     {
@@ -164,13 +186,14 @@ TEST_F(TopologicalSortTest, TopologicalOrderIsCorrect)
 
     ASSERT_TRUE(found) << "Topological order tuple not found";
 
-    // Теперь извлекаем задачи из кортежа
+    // Извлекаем задачи из кортежа
     std::vector<std::string> actualOrder;
     ScIterator3Ptr itTasks = m_ctx->CreateIterator3(topologicalTuple, ScType::ConstCommonArc, ScType::ConstNode);
     while (itTasks->Next())
     {
         ScAddr task = itTasks->Get(2);
-        // Получаем main_idtf
+
+        // Получаем идентификатор задачи (main_idtf)
         ScIterator5Ptr idtfIt = m_ctx->CreateIterator5(
             task, ScType::ConstCommonArc, ScType::ConstNodeLink,
             ScType::ConstPermPosArc, ScKeynodes::nrel_main_idtf);
@@ -182,14 +205,19 @@ TEST_F(TopologicalSortTest, TopologicalOrderIsCorrect)
         }
     }
 
+    // Проверяем порядок: A первая, D последняя
     ASSERT_EQ(actualOrder.size(), 4u);
     EXPECT_EQ(actualOrder[0], "A");
     EXPECT_EQ(actualOrder[3], "D");
 
-    // B и C — на позициях 1 и 2 (в любом порядке)
+    // B и C могут идти в любом порядке на позициях 1 и 2
     std::set<std::string> middle(actualOrder.begin() + 1, actualOrder.begin() + 3);
     EXPECT_EQ(middle, (std::set<std::string>{"B", "C"}));
 }
+
+// ================================
+// Тест 5: проверка ES, EF, LS, LF и Slack
+// ================================
 TEST_F(TopologicalSortTest, CPMAttributesAreCorrect)
 {
     std::string csvData =
@@ -204,7 +232,7 @@ TEST_F(TopologicalSortTest, CPMAttributesAreCorrect)
     ScWaiter waiter;
     waiter.Wait(1000);
 
-    // 1. Находим topological order tuple
+    // Находим topological order tuple
     ScAddr topologicalTuple;
     ScIterator3Ptr it3 = m_ctx->CreateIterator3(project, ScType::ConstCommonArc, ScType::ConstNodeTuple);
     while (it3->Next())
@@ -218,18 +246,16 @@ TEST_F(TopologicalSortTest, CPMAttributesAreCorrect)
             break;
         }
     }
-
     ASSERT_TRUE(topologicalTuple.IsValid());
 
-    // 2. Извлекаем задачи из кортежа
+    // Извлекаем задачи из кортежа
     std::map<std::string, ScAddr> tasks;
-
     ScIterator3Ptr itTasks = m_ctx->CreateIterator3(topologicalTuple, ScType::ConstCommonArc, ScType::Unknown);
     while (itTasks->Next())
     {
         ScAddr task = itTasks->Get(2);
 
-        // Получаем main_idtf
+        // Получаем main_idtf задачи
         ScIterator5Ptr idtfIt = m_ctx->CreateIterator5(
             task, ScType::ConstCommonArc, ScType::ConstNodeLink,
             ScType::ConstPermPosArc, ScKeynodes::nrel_main_idtf);
@@ -242,9 +268,10 @@ TEST_F(TopologicalSortTest, CPMAttributesAreCorrect)
         }
     }
 
+    // Должно быть 4 задачи
     ASSERT_EQ(tasks.size(), 4u);
 
-    // 3. Вспомогательная функция чтения
+    // Вспомогательная функция для чтения числовых атрибутов
     auto readAttr = [&](ScAddr task, ScAddr rel) -> uint32_t
     {
         ScIterator5Ptr it = m_ctx->CreateIterator5(
@@ -261,7 +288,7 @@ TEST_F(TopologicalSortTest, CPMAttributesAreCorrect)
         return std::stoul(value);
     };
 
-    // 4. Ожидаемые CPM значения
+    // Ожидаемые значения CPM
     struct Expected { uint32_t es, ef, ls, lf, slack; bool critical; };
     std::map<std::string, Expected> expected = {
         {"A",{0,5,0,5,0,true}},
@@ -270,6 +297,7 @@ TEST_F(TopologicalSortTest, CPMAttributesAreCorrect)
         {"D",{9,11,9,11,0,true}}
     };
 
+    // Проверяем каждую задачу на соответствие атрибутов CPM
     for (auto const & [name, exp] : expected)
     {
         ASSERT_TRUE(tasks.count(name));
@@ -281,6 +309,7 @@ TEST_F(TopologicalSortTest, CPMAttributesAreCorrect)
         EXPECT_EQ(readAttr(task, ProjectSchedulingKeynodes::nrel_lf), exp.lf);
         EXPECT_EQ(readAttr(task, ProjectSchedulingKeynodes::nrel_slack), exp.slack);
 
+        // Проверяем, что критические задачи помечены
         bool isCritical = m_ctx->CheckConnector(
             ProjectSchedulingKeynodes::concept_crytical_task,
             task,
@@ -289,4 +318,3 @@ TEST_F(TopologicalSortTest, CPMAttributesAreCorrect)
         EXPECT_EQ(isCritical, exp.critical);
     }
 }
-

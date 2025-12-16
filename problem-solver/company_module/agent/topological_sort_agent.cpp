@@ -2,27 +2,34 @@
 #include <sc-memory/sc_memory.hpp>
 #include "../keynodes/scheduling_keynodes.hpp"
 
+// Конструктор агента, логируем инициализацию
 TopologicalSortAgent::TopologicalSortAgent(){
   m_logger.Info("Topological sort agent initialized.");
 }
 
+// Подписка на событие: когда проект DAG готов
 ScAddr TopologicalSortAgent::GetEventSubscriptionElement() const{
   return ProjectSchedulingKeynodes::action_project_dag_ready;
 }
 
+// Класс действия для TopologicalSort
 ScAddr TopologicalSortAgent::GetActionClass() const{
   return ProjectSchedulingKeynodes::action_topological_check_dag;
 }
+
+// Шаблон для инициирования действия на основе события
 ScTemplate TopologicalSortAgent::GetInitiationConditionTemplate(ConnectivityEvent const & event) const
 {
   ScTemplate templ;
   templ.Triple(ProjectSchedulingKeynodes::action_project_dag_ready, ScType::VarPermPosArc, ScType::VarNode);
   return templ;
 }
+
+// Получение всех задач проекта
 ScAddrVector TopologicalSortAgent::GetTasks(ScAddr const & project){
-    // Try to collect tasks as any elements pointed by common arcs from project
     ScAddrVector tasks;
 
+    // Пытаемся собрать задачи через обычные дуги
     ScIterator3Ptr it3_any = m_context.CreateIterator3(project, ScType::ConstCommonArc, ScType::Unknown);
     while (it3_any->Next())
     {
@@ -30,7 +37,7 @@ ScAddrVector TopologicalSortAgent::GetTasks(ScAddr const & project){
         tasks.push_back(elementAddr);
     }
 
-    // If nothing found, try PermPosArc variant (some generators may use different types)
+    // Если ничего не нашли, пробуем через perm pos arcs
     if (tasks.empty())
     {
         ScIterator3Ptr it3_perm = m_context.CreateIterator3(project, ScType::ConstPermPosArc, ScType::Unknown);
@@ -43,30 +50,32 @@ ScAddrVector TopologicalSortAgent::GetTasks(ScAddr const & project){
 
     return tasks;
 }
+
+// Получение зависимостей конкретной задачи
 ScAddrVector TopologicalSortAgent::GetDependencies(ScAddr const & task){
     ScAddrVector dependencies;
-    // We search for common arcs outgoing from the child task to its parent tasks
-    // which are marked by a perm pos arc from nrel_dependency to that common arc.
+    // Ищем common arcs от child -> parent, которые помечены nrel_dependency
     ScIterator5Ptr it5 = m_context.CreateIterator5(
         task,
-        ScType::ConstCommonArc,    // common arc from child -> parent
-        ScType::ConstNode,         // parent node
-        ScType::ConstPermPosArc,   // marking arc
+        ScType::ConstCommonArc,
+        ScType::ConstNode,
+        ScType::ConstPermPosArc,
         ProjectSchedulingKeynodes::nrel_dependency);
 
     while (it5->Next())
     {
-        ScAddr parent = it5->Get(2); // target of common arc is the parent
+        ScAddr parent = it5->Get(2); // target common arc — родитель
         dependencies.push_back(parent);
     }
     return dependencies;
 }
+
+// Проверка, что DAG ацикличен (DFS по ScAddr)
 bool TopologicalSortAgent::IsAcyclic(ScAddrVector const & tasks)
 {
-    // 1. Преобразуем ScAddr → system identifier (string)
+    // Сопоставляем ScAddr с именами
     std::map<std::string, ScAddr> nameToAddr;
     std::set<std::string> taskNames;
-
     for (const ScAddr& task : tasks)
     {
         std::string name = m_context.GetElementSystemIdentifier(task);
@@ -77,18 +86,15 @@ bool TopologicalSortAgent::IsAcyclic(ScAddrVector const & tasks)
         }
     }
 
-    // 2. Цвета по имени
-    std::map<std::string, int> color; // 0=white, 1=gray, 2=black
+    // Инициализация цветов для DFS: 0=white,1=gray,2=black
+    std::map<std::string, int> color;
     for (const std::string& name : taskNames)
-    {
         color[name] = 0;
-    }
 
-    // 3. DFS по именам
+    // DFS по каждой вершине
     for (const std::string& startName : taskNames)
     {
         if (color[startName] != 0) continue;
-
         std::stack<std::string> stack;
         stack.push(startName);
 
@@ -98,51 +104,39 @@ bool TopologicalSortAgent::IsAcyclic(ScAddrVector const & tasks)
 
             if (color[u] == 0)
             {
-                color[u] = 1; // gray
-
-                // Получаем ScAddr по имени
+                color[u] = 1; // серый
                 ScAddr uAddr = nameToAddr[u];
-
-                // Получаем зависимости: ScAddr → vector<ScAddr>
                 std::vector<ScAddr> deps = GetDependencies(uAddr);
 
                 for (const ScAddr& vAddr : deps)
                 {
                     std::string v = m_context.GetElementSystemIdentifier(vAddr);
                     if (v.empty()) continue;
-
-                    // Только если v — часть проекта
-                    if (taskNames.find(v) == taskNames.end())
-                        continue;
+                    if (taskNames.find(v) == taskNames.end()) continue;
 
                     if (color[v] == 0)
-                    {
                         stack.push(v);
-                    }
                     else if (color[v] == 1)
-                    {
-                        // Цикл!
-                        return false;
-                    }
+                        return false; // найден цикл
                 }
             }
             else if (color[u] == 1)
             {
-                color[u] = 2; // black
+                color[u] = 2; // черный
                 stack.pop();
             }
             else
-            {
                 stack.pop();
-            }
         }
     }
 
     return true;
 }
+
+// Топологическая сортировка Kahn
 ScAddrVector TopologicalSortAgent::TopologicalSort(ScAddrVector const & tasks){
     std::map<std::string, ScAddr> nameToAddr;
-    std::map<std::string, std::vector<std::string>> children; // parent_name → [child_names]
+    std::map<std::string, std::vector<std::string>> children; // parent_name -> [child_names]
     std::map<std::string, int> inDegree;
 
     for(const auto & task : tasks){
@@ -153,12 +147,14 @@ ScAddrVector TopologicalSortAgent::TopologicalSort(ScAddrVector const & tasks){
         inDegree[name] = 0;
         children[name] = std::vector<std::string>();
     }
+
+    // Заполняем children и in-degree
     for (const ScAddr& childAddr : tasks)
     {
         std::string childName = m_context.GetElementSystemIdentifier(childAddr);
         if (childName.empty()) continue;
 
-        auto parentAddrs = GetDependencies(childAddr); // returns parents (child зависит от них)
+        auto parentAddrs = GetDependencies(childAddr);
 
         for (const ScAddr& parentAddr : parentAddrs)
         {
@@ -166,19 +162,16 @@ ScAddrVector TopologicalSortAgent::TopologicalSort(ScAddrVector const & tasks){
             if (parentName.empty()) continue;
             if (nameToAddr.find(parentName) == nameToAddr.end()) continue;
 
-            // parent → child
             children[parentName].push_back(childName);
-            inDegree[childName]++; // child зависит от parent → in-degree++
+            inDegree[childName]++;
         }
     }
+
+    // Собираем задачи с нулевой in-degree
     std::queue<std::string> zeroInDegree;
     for (const auto& p : inDegree)
-    {
         if (p.second == 0)
-        {
             zeroInDegree.push(p.first);
-        }
-    }
 
     std::vector<std::string> topoOrder;
     while (!zeroInDegree.empty())
@@ -191,30 +184,27 @@ ScAddrVector TopologicalSortAgent::TopologicalSort(ScAddrVector const & tasks){
         {
             inDegree[v]--;
             if (inDegree[v] == 0)
-            {
                 zeroInDegree.push(v);
-            }
         }
     }
 
-    // 4. Проверка на цикл
+    // Проверка на цикл
     if (topoOrder.size() != tasks.size())
     {
         m_logger.Error("Cycle detected during topological sort!");
-        return {}; // пустой вектор = ошибка
+        return {};
     }
 
-    // 5. Преобразуем обратно в ScAddr
+    // Преобразуем обратно в ScAddr
     std::vector<ScAddr> result;
     for (const std::string& name : topoOrder)
-    {
         result.push_back(nameToAddr[name]);
-    }
+
     return result;
 }
 
+// Получение длительности задачи
 uint32_t TopologicalSortAgent::GetDuration(ScAddr const & task){
-    // Ищем дугу task -> duration_link
     ScIterator5Ptr it5 = m_context.CreateIterator5(
         task,
         ScType::ConstCommonArc,
@@ -238,12 +228,12 @@ uint32_t TopologicalSortAgent::GetDuration(ScAddr const & task){
     return 0;
 }
 
+// Получение детей (обратная зависимость)
 ScAddrVector TopologicalSortAgent::GetChildren(ScAddr const & parent)
 {
     ScAddrVector children;
-
     ScIterator5Ptr it5 = m_context.CreateIterator5(
-        ScType::ConstNode,          // child
+        ScType::ConstNode,
         ScType::ConstCommonArc,
         parent,
         ScType::ConstPermPosArc,
@@ -255,71 +245,45 @@ ScAddrVector TopologicalSortAgent::GetChildren(ScAddr const & parent)
     return children;
 }
 
-void TopologicalSortAgent::WriteAttr(
-    ScAddr const & task,
-    ScAddr const & rel,
-    uint32_t value)
+// Запись числового атрибута задачи в sc-память
+void TopologicalSortAgent::WriteAttr(ScAddr const & task, ScAddr const & rel, uint32_t value)
 {
     ScAddr link = m_context.GenerateLink(ScType::ConstNodeLink);
     m_context.SetLinkContent(link, std::to_string(value));
 
-    ScAddr arc = m_context.GenerateConnector(
-        ScType::ConstCommonArc,
-        task,
-        link);
+    ScAddr arc = m_context.GenerateConnector(ScType::ConstCommonArc, task, link);
 
-    m_context.GenerateConnector(
-        ScType::ConstPermPosArc,
-        rel,
-        arc);
+    m_context.GenerateConnector(ScType::ConstPermPosArc, rel, arc);
 }
 
-
+// Построение зависимостей и вычисление CPM (ES, EF, LS, LF, Slack)
 void TopologicalSortAgent::BuildTaskDependencies(ScAddrVector const & topoOrder)
 {
-    if (topoOrder.empty())
-        return;
+    if (topoOrder.empty()) return;
 
-    // name -> ScAddr
     std::map<std::string, ScAddr> nameToAddr;
-
-    // CPM values by task name
     std::map<std::string, uint32_t> ES, EF, LS, LF, duration;
 
-    /* =========================
-       Init
-       ========================= */
-
+    // Инициализация: собираем длительности
     for (ScAddr const & task : topoOrder)
     {
         std::string name = m_context.GetElementSystemIdentifier(task);
-        if (name.empty())
-            continue;
-
+        if (name.empty()) continue;
         nameToAddr[name] = task;
         duration[name] = GetDuration(task);
     }
 
-    /* =========================
-       Forward pass (ES / EF)
-       ========================= */
-
+    // Forward pass: ES и EF
     for (ScAddr const & task : topoOrder)
     {
         std::string name = m_context.GetElementSystemIdentifier(task);
-        if (name.empty())
-            continue;
-
         uint32_t es = 0;
 
-        // parents: task depends on them
         auto parents = GetDependencies(task);
         for (ScAddr const & p : parents)
         {
             std::string pName = m_context.GetElementSystemIdentifier(p);
-            if (pName.empty())
-                continue;
-
+            if (pName.empty()) continue;
             if (EF.count(pName))
                 es = std::max(es, EF[pName]);
         }
@@ -328,27 +292,18 @@ void TopologicalSortAgent::BuildTaskDependencies(ScAddrVector const & topoOrder)
         EF[name] = es + duration[name];
     }
 
-    /* =========================
-       Project duration
-       ========================= */
-
+    // Определяем длительность проекта
     uint32_t projectDuration = 0;
     for (auto const & p : EF)
         projectDuration = std::max(projectDuration, p.second);
 
-    /* =========================
-       Backward pass (LS / LF)
-       ========================= */
-
+    // Backward pass: LS и LF
     for (auto it = topoOrder.rbegin(); it != topoOrder.rend(); ++it)
     {
         ScAddr task = *it;
         std::string name = m_context.GetElementSystemIdentifier(task);
-        if (name.empty())
-            continue;
 
         auto children = GetChildren(task);
-
         uint32_t lf = projectDuration;
 
         if (!children.empty())
@@ -357,9 +312,7 @@ void TopologicalSortAgent::BuildTaskDependencies(ScAddrVector const & topoOrder)
             for (ScAddr const & c : children)
             {
                 std::string cName = m_context.GetElementSystemIdentifier(c);
-                if (cName.empty())
-                    continue;
-
+                if (cName.empty()) continue;
                 if (LS.count(cName))
                     lf = std::min(lf, LS[cName]);
             }
@@ -369,10 +322,7 @@ void TopologicalSortAgent::BuildTaskDependencies(ScAddrVector const & topoOrder)
         LS[name] = lf - duration[name];
     }
 
-    /* =========================
-       Write to sc-memory
-       ========================= */
-
+    // Записываем атрибуты в sc-память
     for (auto const & p : nameToAddr)
     {
         const std::string & name = p.first;
@@ -384,10 +334,10 @@ void TopologicalSortAgent::BuildTaskDependencies(ScAddrVector const & topoOrder)
         uint32_t lf = LF[name];
         uint32_t slack = (ls >= es) ? (ls - es) : 0;
 
-        WriteAttr(task, ProjectSchedulingKeynodes::nrel_es,    es);
-        WriteAttr(task, ProjectSchedulingKeynodes::nrel_ef,    ef);
-        WriteAttr(task, ProjectSchedulingKeynodes::nrel_ls,    ls);
-        WriteAttr(task, ProjectSchedulingKeynodes::nrel_lf,    lf);
+        WriteAttr(task, ProjectSchedulingKeynodes::nrel_es, es);
+        WriteAttr(task, ProjectSchedulingKeynodes::nrel_ef, ef);
+        WriteAttr(task, ProjectSchedulingKeynodes::nrel_ls, ls);
+        WriteAttr(task, ProjectSchedulingKeynodes::nrel_lf, lf);
         WriteAttr(task, ProjectSchedulingKeynodes::nrel_slack, slack);
 
         if (slack == 0)
@@ -402,66 +352,54 @@ void TopologicalSortAgent::BuildTaskDependencies(ScAddrVector const & topoOrder)
     m_logger.Info("CPM attributes (ES, EF, LS, LF, Slack) successfully written.");
 }
 
-
+// Основная функция агента
 ScResult TopologicalSortAgent::DoProgram(ConnectivityEvent const & event, ScAction & action){
     m_logger.Info("TopologicalSortAgent::DoProgram started!");
-    m_logger.Debug("TopologicalSortAgent::DoProgram started!");
     ScAddr project = event.GetArcTargetElement();
     std::string projId = m_context.GetElementSystemIdentifier(project);
     m_logger.Info("TopologicalSortAgent: project system id = ", projId);
+
     ScAddrVector tasks = GetTasks(project);
     m_logger.Info("TopologicalSortAgent: found tasks count = ", tasks.size());
+
     for (auto const & t : tasks)
     {
         std::string id = m_context.GetElementSystemIdentifier(t);
         m_logger.Info("  task: ", id);
     }
+
+    // Проверка ацикличности
     if(IsAcyclic(tasks)){
-         m_context.GenerateConnector(
-        ScType::ConstPermPosArc,
-        ProjectSchedulingKeynodes::concept_acyclic_project,
-        project);
+        m_context.GenerateConnector(ScType::ConstPermPosArc, ProjectSchedulingKeynodes::concept_acyclic_project, project);
     }
     else{
-        m_context.GenerateConnector(
-        ScType::ConstPermPosArc,
-        ProjectSchedulingKeynodes::concept_cyclic_project,
-        project);
+        m_context.GenerateConnector(ScType::ConstPermPosArc, ProjectSchedulingKeynodes::concept_cyclic_project, project);
         return action.FinishUnsuccessfully();
     }
+
+    // Топологическая сортировка
     std::vector<ScAddr> topoOrder = TopologicalSort(tasks);
     m_logger.Info("TopologicalSortAgent: topoOrder size = ", topoOrder.size());
     for (auto const & t : topoOrder)
-    {
-        std::string id = m_context.GetElementSystemIdentifier(t);
-        m_logger.Info("  topo: ", id);
-    }
+        m_logger.Info("  topo: ", m_context.GetElementSystemIdentifier(t));
+
     if (topoOrder.empty())
-    {
-        // Цикл — уже обработано ранее, но на всякий случай
         return action.FinishUnsuccessfully();
-    }
 
-    // Создаём кортеж результата
+    // Создаём кортеж топологического порядка
     ScAddr orderTuple = m_context.GenerateNode(ScType::ConstNodeTuple);
-
-    // Добавляем каждую задачу в кортеж (common arcs from tuple -> task).
-    // Note: sc-memory iteration over common arcs may return elements in
-    // reverse insertion order, so insert in reverse to make iterator
-    // return tasks in the expected topological sequence.
     for (size_t ii = 0; ii < topoOrder.size(); ++ii)
     {
         size_t i = topoOrder.size() - 1 - ii;
         m_context.GenerateConnector(ScType::ConstCommonArc, orderTuple, topoOrder[i]);
     }
 
-    // Создаём общую дугу от project -> orderTuple и помечаем эту дугу nrel_topological_order
+    // Связываем project -> orderTuple и помечаем nrel_topological_order
     ScAddr projectToTupleArc = m_context.GenerateConnector(ScType::ConstCommonArc, project, orderTuple);
-    m_logger.Info("TopologicalSortAgent: created project->tuple arc");
     m_context.GenerateConnector(ScType::ConstPermPosArc, ProjectSchedulingKeynodes::nrel_topological_order, projectToTupleArc);
-    m_logger.Info("TopologicalSortAgent: marked project->tuple arc with nrel_topological_order");
-    BuildTaskDependencies(topoOrder);
-    return action.FinishSuccessfully();
-    
-}
 
+    // Вычисляем CPM атрибуты для задач
+    BuildTaskDependencies(topoOrder);
+
+    return action.FinishSuccessfully();
+}
