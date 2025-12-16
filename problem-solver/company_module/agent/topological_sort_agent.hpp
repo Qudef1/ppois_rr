@@ -16,8 +16,13 @@ class TopologicalSortAgent :public ScAgent<ConnectivityEvent>{
     ScAddr GetActionClass() const override;
     // цикл программы агента
     ScResult DoProgram(ConnectivityEvent const & event, ScAction & action) override;
+    private:
     ScAddrVector GetTasks(ScAddr const & project);
     ScAddrVector GetDependencies(ScAddr const & task);
     bool IsAcyclic(ScAddrVector const & tasks);
     ScAddrVector TopologicalSort(ScAddrVector const & tasks);
+    uint32_t GetDuration(ScAddr const & task);
+    void BuildTaskDependencies(ScAddrVector const & tasks);
+    ScAddrVector GetChildren(ScAddr const & task);
+    void WriteAttr(ScAddr const & task, ScAddr const & nrel, uint32_t value);
 };

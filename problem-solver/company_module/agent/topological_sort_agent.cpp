@@ -212,6 +212,197 @@ ScAddrVector TopologicalSortAgent::TopologicalSort(ScAddrVector const & tasks){
     }
     return result;
 }
+
+uint32_t TopologicalSortAgent::GetDuration(ScAddr const & task){
+    // Ищем дугу task -> duration_link
+    ScIterator5Ptr it5 = m_context.CreateIterator5(
+        task,
+        ScType::ConstCommonArc,
+        ScType::ConstNodeLink,
+        ScType::ConstPermPosArc,
+        ProjectSchedulingKeynodes::nrel_duration
+    );
+    if (it5->Next())
+    {
+        std::string content;
+        m_context.GetLinkContent(it5->Get(2), content);
+        try
+        {
+            return std::stoul(content);
+        }
+        catch (...)
+        {
+            m_logger.Info("Invalid duration for task: ", m_context.GetElementSystemIdentifier(task));
+        }
+    }
+    return 0;
+}
+
+ScAddrVector TopologicalSortAgent::GetChildren(ScAddr const & parent)
+{
+    ScAddrVector children;
+
+    ScIterator5Ptr it5 = m_context.CreateIterator5(
+        ScType::ConstNode,          // child
+        ScType::ConstCommonArc,
+        parent,
+        ScType::ConstPermPosArc,
+        ProjectSchedulingKeynodes::nrel_dependency);
+
+    while (it5->Next())
+        children.push_back(it5->Get(0));
+
+    return children;
+}
+
+void TopologicalSortAgent::WriteAttr(
+    ScAddr const & task,
+    ScAddr const & rel,
+    uint32_t value)
+{
+    ScAddr link = m_context.GenerateLink(ScType::ConstNodeLink);
+    m_context.SetLinkContent(link, std::to_string(value));
+
+    ScAddr arc = m_context.GenerateConnector(
+        ScType::ConstCommonArc,
+        task,
+        link);
+
+    m_context.GenerateConnector(
+        ScType::ConstPermPosArc,
+        rel,
+        arc);
+}
+
+
+void TopologicalSortAgent::BuildTaskDependencies(ScAddrVector const & topoOrder)
+{
+    if (topoOrder.empty())
+        return;
+
+    // name -> ScAddr
+    std::map<std::string, ScAddr> nameToAddr;
+
+    // CPM values by task name
+    std::map<std::string, uint32_t> ES, EF, LS, LF, duration;
+
+    /* =========================
+       Init
+       ========================= */
+
+    for (ScAddr const & task : topoOrder)
+    {
+        std::string name = m_context.GetElementSystemIdentifier(task);
+        if (name.empty())
+            continue;
+
+        nameToAddr[name] = task;
+        duration[name] = GetDuration(task);
+    }
+
+    /* =========================
+       Forward pass (ES / EF)
+       ========================= */
+
+    for (ScAddr const & task : topoOrder)
+    {
+        std::string name = m_context.GetElementSystemIdentifier(task);
+        if (name.empty())
+            continue;
+
+        uint32_t es = 0;
+
+        // parents: task depends on them
+        auto parents = GetDependencies(task);
+        for (ScAddr const & p : parents)
+        {
+            std::string pName = m_context.GetElementSystemIdentifier(p);
+            if (pName.empty())
+                continue;
+
+            if (EF.count(pName))
+                es = std::max(es, EF[pName]);
+        }
+
+        ES[name] = es;
+        EF[name] = es + duration[name];
+    }
+
+    /* =========================
+       Project duration
+       ========================= */
+
+    uint32_t projectDuration = 0;
+    for (auto const & p : EF)
+        projectDuration = std::max(projectDuration, p.second);
+
+    /* =========================
+       Backward pass (LS / LF)
+       ========================= */
+
+    for (auto it = topoOrder.rbegin(); it != topoOrder.rend(); ++it)
+    {
+        ScAddr task = *it;
+        std::string name = m_context.GetElementSystemIdentifier(task);
+        if (name.empty())
+            continue;
+
+        auto children = GetChildren(task);
+
+        uint32_t lf = projectDuration;
+
+        if (!children.empty())
+        {
+            lf = UINT32_MAX;
+            for (ScAddr const & c : children)
+            {
+                std::string cName = m_context.GetElementSystemIdentifier(c);
+                if (cName.empty())
+                    continue;
+
+                if (LS.count(cName))
+                    lf = std::min(lf, LS[cName]);
+            }
+        }
+
+        LF[name] = lf;
+        LS[name] = lf - duration[name];
+    }
+
+    /* =========================
+       Write to sc-memory
+       ========================= */
+
+    for (auto const & p : nameToAddr)
+    {
+        const std::string & name = p.first;
+        ScAddr const & task = p.second;
+
+        uint32_t es = ES[name];
+        uint32_t ef = EF[name];
+        uint32_t ls = LS[name];
+        uint32_t lf = LF[name];
+        uint32_t slack = (ls >= es) ? (ls - es) : 0;
+
+        WriteAttr(task, ProjectSchedulingKeynodes::nrel_es,    es);
+        WriteAttr(task, ProjectSchedulingKeynodes::nrel_ef,    ef);
+        WriteAttr(task, ProjectSchedulingKeynodes::nrel_ls,    ls);
+        WriteAttr(task, ProjectSchedulingKeynodes::nrel_lf,    lf);
+        WriteAttr(task, ProjectSchedulingKeynodes::nrel_slack, slack);
+
+        if (slack == 0)
+        {
+            m_context.GenerateConnector(
+                ScType::ConstPermPosArc,
+                ProjectSchedulingKeynodes::concept_crytical_task,
+                task);
+        }
+    }
+
+    m_logger.Info("CPM attributes (ES, EF, LS, LF, Slack) successfully written.");
+}
+
+
 ScResult TopologicalSortAgent::DoProgram(ConnectivityEvent const & event, ScAction & action){
     m_logger.Info("TopologicalSortAgent::DoProgram started!");
     m_logger.Debug("TopologicalSortAgent::DoProgram started!");
@@ -269,7 +460,7 @@ ScResult TopologicalSortAgent::DoProgram(ConnectivityEvent const & event, ScActi
     m_logger.Info("TopologicalSortAgent: created project->tuple arc");
     m_context.GenerateConnector(ScType::ConstPermPosArc, ProjectSchedulingKeynodes::nrel_topological_order, projectToTupleArc);
     m_logger.Info("TopologicalSortAgent: marked project->tuple arc with nrel_topological_order");
-
+    BuildTaskDependencies(topoOrder);
     return action.FinishSuccessfully();
     
 }

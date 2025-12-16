@@ -15,6 +15,8 @@ public:
 
   static inline ScKeynode const concept_task{
       "concept_task", ScType::ConstNodeClass};
+  static inline ScKeynode const concept_crytical_task{
+      "concept_crytical_task", ScType::ConstNodeClass};
 
   static inline ScKeynode const concept_acyclic_project{
       "concept_acyclic_project", ScType::ConstNodeClass};
@@ -32,4 +34,17 @@ public:
   static inline ScKeynode const nrel_dependency{
       "nrel_dependency", ScType::ConstNodeNonRole};
 
+  // scheduling result relations
+
+  static inline ScKeynode const nrel_es{
+      "nrel_es", ScType::ConstNodeNonRole};
+  static inline ScKeynode const nrel_ef{
+      "nrel_ef", ScType::ConstNodeNonRole};
+  static inline ScKeynode const nrel_ls{
+      "nrel_ls", ScType::ConstNodeNonRole};
+  static inline ScKeynode const nrel_lf{
+      "nrel_lf", ScType::ConstNodeNonRole};
+  static inline ScKeynode const nrel_slack{
+      "nrel_slack", ScType::ConstNodeNonRole};
+  
 };
