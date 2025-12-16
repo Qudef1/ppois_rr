@@ -22,7 +22,11 @@ class TopologicalSortAgent :public ScAgent<ConnectivityEvent>{
     bool IsAcyclic(ScAddrVector const & tasks);
     ScAddrVector TopologicalSort(ScAddrVector const & tasks);
     uint32_t GetDuration(ScAddr const & task);
-    void BuildTaskDependencies(ScAddrVector const & tasks);
+    void BuildTaskDependencies(ScAddrVector const & tasks, ScAddr const & project, std::map<std::string, uint32_t> & slackMap, uint32_t & projectDuration);
     ScAddrVector GetChildren(ScAddr const & task);
     void WriteAttr(ScAddr const & task, ScAddr const & nrel, uint32_t value);
+    ScAddrVector BuildCriticalPath(ScAddrVector const & topoOrder, std::map<std::string, uint32_t> const & slack);
+    void FindParallelTasks(ScAddrVector const & topoOrder, std::map<std::string, uint32_t> const & ES, std::map<std::string, uint32_t> const & EF);
+    void SaveProjectDuration(ScAddr const & project, uint32_t duration);
+    std::string GetTaskMainIdtf(ScAddr const & task);
 };

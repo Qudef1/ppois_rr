@@ -46,5 +46,7 @@ public:
       "nrel_lf", ScType::ConstNodeNonRole};
   static inline ScKeynode const nrel_slack{
       "nrel_slack", ScType::ConstNodeNonRole};
+  static inline ScKeynode const nrel_critical_path{
+      "nrel_critical_path", ScType::ConstNodeNonRole};
   
 };
