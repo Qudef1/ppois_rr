@@ -34,8 +34,6 @@ public:
   static inline ScKeynode const nrel_dependency{
       "nrel_dependency", ScType::ConstNodeNonRole};
 
-  // scheduling result relations
-
   static inline ScKeynode const nrel_es{
       "nrel_es", ScType::ConstNodeNonRole};
   static inline ScKeynode const nrel_ef{
