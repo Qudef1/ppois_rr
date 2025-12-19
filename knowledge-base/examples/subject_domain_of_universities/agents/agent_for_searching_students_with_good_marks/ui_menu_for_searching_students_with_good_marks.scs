@@ -1,7 +1,7 @@
 ui_menu_for_searching_students_with_good_marks
 <- ui_user_command_class_atom;
 <- ui_user_command_class_view_kb;
-=> nrel_main_idtf:
+=> nrel_main_idtf: 
 	[Найти студентов заданного университета, которые имеют хорошие оценки]
 	(*
 		<- lang_ru;;

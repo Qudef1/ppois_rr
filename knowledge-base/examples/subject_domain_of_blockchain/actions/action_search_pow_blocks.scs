@@ -1,0 +1,9 @@
+action_search_pow_blocks
+<- sc_node_class;
+=> nrel_main_idtf:
+    [действие. поиск валидных PoW-блоков в указанном блокчейне]
+    (*
+        <- lang_ru;;
+    *);
+<= nrel_inclusion:
+    information_action;;

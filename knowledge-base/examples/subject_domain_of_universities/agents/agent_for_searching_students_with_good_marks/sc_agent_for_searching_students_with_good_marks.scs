@@ -7,7 +7,7 @@ sc_agent_for_searching_students_with_good_marks
 	[sc-agent for searching students of specified university with good marks]
     (* 
         <- lang_en;;
-    *);
+    *); 
 <- abstract_sc_agent;
 => nrel_primary_initiation_condition: 
 	(sc_event_after_generate_outgoing_arc => action_initiated);

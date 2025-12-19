@@ -1,0 +1,49 @@
+sc_agent_for_searching_pow_blocks
+=> nrel_main_idtf:
+    [sc-агент поиска валидных PoW-блоков в указанном блокчейне]
+    (*
+        <- lang_ru;;
+    *);
+    [sc-agent for searching valid PoW blocks in specified blockchain]
+    (*
+        <- lang_en;;
+    *); 
+<- abstract_sc_agent;
+=> nrel_primary_initiation_condition:
+    (sc_event_after_generate_outgoing_arc => action_initiated);
+=> nrel_initiation_condition_and_result:
+    (..sc_agent_for_searching_pow_blocks_condition => ..sc_agent_for_searching_pow_blocks_result);
+=> nrel_sc_agent_action_class:
+    action_search_pow_blocks;
+<= nrel_sc_agent_key_sc_elements:
+{
+    action_initiated;
+    action_search_pow_blocks
+};
+=> nrel_inclusion:
+    .platform_independent_implementation_of_sc_agent_for_searching_pow_blocks
+    (*
+        <- platform_independent_abstract_sc_agent;;
+        <= nrel_sc_agent_program:
+        {
+            agent_program_for_searching_pow_blocks;
+            program_for_searching_pow_blocks
+        };;
+
+        -> scp_agent_for_searching_pow_blocks
+        (*
+            <- active_sc_agent;;
+        *);;
+    *);;
+
+..sc_agent_for_searching_pow_blocks_condition
+= [*
+    action_search_pow_blocks _-> .._action;;
+    action_initiated _-> .._action;;
+    .._action _-> rrel_1:: .._blockchain;;
+*];;
+
+..sc_agent_for_searching_pow_blocks_result
+= [*
+    concept_block _-> .._block;;
+*];;

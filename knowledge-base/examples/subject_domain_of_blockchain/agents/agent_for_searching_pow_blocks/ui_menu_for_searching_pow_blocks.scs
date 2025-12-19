@@ -1,0 +1,29 @@
+ui_menu_for_searching_pow_blocks
+<- ui_user_command_class_atom;
+<- ui_user_command_class_view_kb;
+=> nrel_main_idtf:
+  [Найти валидные PoW-блоки в указанном блокчейне]
+  (*
+      <- lang_ru;;
+  *);
+  [Search valid PoW blocks in specified blockchain]
+  (*
+      <- lang_en;;
+  *);
+=> ui_nrel_command_template:
+  [*
+      action_search_pow_blocks _-> .._action
+      (*
+          _-> rrel_1:: ui_arg_1;;
+      *);;
+      .._action <-_ action;;
+  *];
+=> ui_nrel_command_lang_template:
+  [Найти валидные PoW-блоки в $ui_arg_1]
+  (*
+      <- lang_ru;;
+  *);
+  [Search valid PoW blocks in $ui_arg_1]
+  (*
+      <- lang_en;;
+  *);;

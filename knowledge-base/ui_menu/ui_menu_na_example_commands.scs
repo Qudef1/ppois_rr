@@ -13,5 +13,6 @@ ui_menu_na_example_commands
 {
 	ui_menu_fixed_search_strategy_template_search;
 	ui_menu_run_scp_program;
-	ui_menu_for_searching_students_with_good_marks
+	ui_menu_for_searching_students_with_good_marks;
+	ui_menu_for_searching_pow_blocks
 };;
